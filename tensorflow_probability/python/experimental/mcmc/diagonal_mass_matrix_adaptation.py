@@ -123,6 +123,7 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
         inner_kernel,
         initial_running_variance,
         momentum_distribution_setter_fn=hmc_like_momentum_distribution_setter_fn,
+        variance_lower_bound=1.e-8,
         validate_args=False,
         name=None,
     ):
@@ -160,6 +161,7 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
             inner_kernel=inner_kernel,
             initial_running_variance=initial_running_variance,
             momentum_distribution_setter_fn=momentum_distribution_setter_fn,
+            variance_lower_bound=variance_lower_bound,
             name=name,
         )
 
@@ -175,6 +177,10 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
     def initial_running_variance(self):
         return self._parameters["initial_running_variance"]
 
+    @property
+    def variance_lower_bound(self):
+        return self._parameters["variance_lower_bound"]
+    
     def momentum_distribution_setter_fn(
         self, kernel_results, new_momentum_distribution
     ):
@@ -195,7 +201,7 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
         ):
             variance_parts = previous_kernel_results.running_variance
             diags = [
-                _bound(variance_part.variance()) for variance_part in variance_parts
+                _bound(variance_part.variance(), self.variance_lower_bound) for variance_part in variance_parts
             ]
             # Set the momentum.
             batch_ndims = ps.rank(
@@ -282,7 +288,7 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
                 variance_parts = list(self.initial_running_variance)
 
             diags = [
-                _bound(variance_part.variance()) for variance_part in variance_parts
+                _bound(variance_part.variance(), self.variance_lower_bound) for variance_part in variance_parts
             ]
 
             # Step inner results.
