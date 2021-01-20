@@ -65,6 +65,8 @@ def hmc_like_momentum_distribution_setter_fn(kernel_results, new_distribution):
   return unnest.replace_innermost(
       kernel_results, momentum_distribution=new_distribution)
 
+def _bound(variance, bound=1e-8):
+  return tf.math.maximum(variance, bound)
 
 class DiagonalMassMatrixAdaptationResults(
     mcmc_util.PrettyNamedTupleMixin,
@@ -174,7 +176,7 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
         mcmc_util.make_name(self.name, 'diagonal_mass_matrix_adaptation',
                             'one_step')):
       variance_parts = previous_kernel_results.running_variance
-      diags = [variance_part.variance() for variance_part in variance_parts]
+      diags = [_bound(variance_part.variance()) for variance_part in variance_parts]
       # Set the momentum.
       batch_ndims = ps.rank(unnest.get_innermost(previous_kernel_results,
                                                  'target_log_prob'))
