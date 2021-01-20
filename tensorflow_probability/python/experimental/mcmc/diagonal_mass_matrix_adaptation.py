@@ -24,9 +24,13 @@ import tensorflow.compat.v2 as tf
 
 from tensorflow_probability.python.bijectors import reshape
 from tensorflow_probability.python.distributions import independent
-from tensorflow_probability.python.distributions import joint_distribution_sequential as jds
+from tensorflow_probability.python.distributions import (
+    joint_distribution_sequential as jds,
+)
 from tensorflow_probability.python.distributions import transformed_distribution
-from tensorflow_probability.python.experimental.distributions import mvn_precision_factor_linop as mvn_pfl
+from tensorflow_probability.python.experimental.distributions import (
+    mvn_precision_factor_linop as mvn_pfl,
+)
 from tensorflow_probability.python.experimental.stats import sample_stats
 from tensorflow_probability.python.internal import auto_composite_tensor
 from tensorflow_probability.python.internal import broadcast_util as bu
@@ -36,45 +40,53 @@ from tensorflow_probability.python.mcmc import kernel as kernel_base
 from tensorflow_probability.python.mcmc.internal import util as mcmc_util
 
 __all__ = [
-    'DiagonalMassMatrixAdaptation',
+    "DiagonalMassMatrixAdaptation",
 ]
 
 # Add auto-composite tensors to the global namespace to avoid creating new
 # classes inside functions.
 _CompositeJointDistributionSequential = auto_composite_tensor.auto_composite_tensor(
-    jds.JointDistributionSequential, omit_kwargs=('name',))
+    jds.JointDistributionSequential, omit_kwargs=("name",)
+)
 _CompositeLinearOperatorDiag = auto_composite_tensor.auto_composite_tensor(
-    tf.linalg.LinearOperatorDiag, omit_kwargs=('name',))
+    tf.linalg.LinearOperatorDiag, omit_kwargs=("name",)
+)
 _CompositeMultivariateNormalPrecisionFactorLinearOperator = auto_composite_tensor.auto_composite_tensor(
-    mvn_pfl.MultivariateNormalPrecisionFactorLinearOperator,
-    omit_kwargs=('name',))
+    mvn_pfl.MultivariateNormalPrecisionFactorLinearOperator, omit_kwargs=("name",)
+)
 _CompositeIndependent = auto_composite_tensor.auto_composite_tensor(
-    independent.Independent, omit_kwargs=('name',))
+    independent.Independent, omit_kwargs=("name",)
+)
 _CompositeReshape = auto_composite_tensor.auto_composite_tensor(
-    reshape.Reshape, omit_kwargs=('name',))
+    reshape.Reshape, omit_kwargs=("name",)
+)
 _CompositeTransformedDistribution = auto_composite_tensor.auto_composite_tensor(
     transformed_distribution.TransformedDistribution,
-    omit_kwargs=('name', 'kwargs_split_fn', 'parameters'))
+    omit_kwargs=("name", "kwargs_split_fn", "parameters"),
+)
 
 
 def hmc_like_momentum_distribution_setter_fn(kernel_results, new_distribution):
-  """Setter for `momentum_distribution` so it can be adapted."""
-  # Note that unnest.replace_innermost has a special path for going into
-  # `accepted_results` preferentially, so this will set
-  # `accepted_results.momentum_distribution`.
-  return unnest.replace_innermost(
-      kernel_results, momentum_distribution=new_distribution)
+    """Setter for `momentum_distribution` so it can be adapted."""
+    # Note that unnest.replace_innermost has a special path for going into
+    # `accepted_results` preferentially, so this will set
+    # `accepted_results.momentum_distribution`.
+    return unnest.replace_innermost(
+        kernel_results, momentum_distribution=new_distribution
+    )
+
 
 def _bound(variance, bound=1e-3):
-  return tf.math.maximum(variance, bound)
+    return tf.math.maximum(variance, bound)
+
 
 class DiagonalMassMatrixAdaptationResults(
     mcmc_util.PrettyNamedTupleMixin,
-    collections.namedtuple('DiagonalMassMatrixAdaptationResults', [
-        'inner_results',
-        'running_variance',
-    ])):
-  """Results of the DiagonalMassMatrixAdaptation TransitionKernel.
+    collections.namedtuple(
+        "DiagonalMassMatrixAdaptationResults", ["inner_results", "running_variance",]
+    ),
+):
+    """Results of the DiagonalMassMatrixAdaptation TransitionKernel.
 
   Attributes:
     inner_results: Results of the inner kernel.
@@ -82,11 +94,12 @@ class DiagonalMassMatrixAdaptationResults(
       `tfp.experimental.stats.RunningVariance`, used to set
       the diagonal covariance of the momentum distribution.
   """
-  __slots__ = ()
+
+    __slots__ = ()
 
 
 class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
-  """Adapts the inner kernel's `momentum_distribution` to estimated variance.
+    """Adapts the inner kernel's `momentum_distribution` to estimated variance.
 
   This kernel uses an online variance estimate to adjust a diagonal covariance
   matrix for each of the state parts. More specifically, the
@@ -105,14 +118,15 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
   should not be used when drawing actual samples.
   """
 
-  def __init__(
-      self,
-      inner_kernel,
-      initial_running_variance,
-      momentum_distribution_setter_fn=hmc_like_momentum_distribution_setter_fn,
-      validate_args=False,
-      name=None):
-    """Creates the diagonal mass matrix adaptation kernel.
+    def __init__(
+        self,
+        inner_kernel,
+        initial_running_variance,
+        momentum_distribution_setter_fn=hmc_like_momentum_distribution_setter_fn,
+        validate_args=False,
+        name=None,
+    ):
+        """Creates the diagonal mass matrix adaptation kernel.
 
     Users must provide an `initial_running_variance`, either from a previous
     `DiagonalMassMatrixAdaptation`, or some other source. See
@@ -141,148 +155,170 @@ class DiagonalMassMatrixAdaptation(kernel_base.TransitionKernel):
       name: Python `str` name prefixed to Ops created by this class. Default:
         'diagonal_mass_matrix_adaptation'.
     """
-    inner_kernel = mcmc_util.enable_store_parameters_in_results(inner_kernel)
-    self._parameters = dict(
-        inner_kernel=inner_kernel,
-        initial_running_variance=initial_running_variance,
-        momentum_distribution_setter_fn=momentum_distribution_setter_fn,
-        name=name,
-    )
+        inner_kernel = mcmc_util.enable_store_parameters_in_results(inner_kernel)
+        self._parameters = dict(
+            inner_kernel=inner_kernel,
+            initial_running_variance=initial_running_variance,
+            momentum_distribution_setter_fn=momentum_distribution_setter_fn,
+            name=name,
+        )
 
-  @property
-  def inner_kernel(self):
-    return self._parameters['inner_kernel']
+    @property
+    def inner_kernel(self):
+        return self._parameters["inner_kernel"]
 
-  @property
-  def name(self):
-    return self._parameters['name']
+    @property
+    def name(self):
+        return self._parameters["name"]
 
-  @property
-  def initial_running_variance(self):
-    return self._parameters['initial_running_variance']
+    @property
+    def initial_running_variance(self):
+        return self._parameters["initial_running_variance"]
 
-  def momentum_distribution_setter_fn(self, kernel_results,
-                                      new_momentum_distribution):
-    return self._parameters['momentum_distribution_setter_fn'](
-        kernel_results, new_momentum_distribution)
+    def momentum_distribution_setter_fn(
+        self, kernel_results, new_momentum_distribution
+    ):
+        return self._parameters["momentum_distribution_setter_fn"](
+            kernel_results, new_momentum_distribution
+        )
 
-  @property
-  def parameters(self):
-    """Return `dict` of ``__init__`` arguments and their values."""
-    return self._parameters
+    @property
+    def parameters(self):
+        """Return `dict` of ``__init__`` arguments and their values."""
+        return self._parameters
 
-  def one_step(self, current_state, previous_kernel_results, seed=None):
-    with tf.name_scope(
-        mcmc_util.make_name(self.name, 'diagonal_mass_matrix_adaptation',
-                            'one_step')):
-      variance_parts = previous_kernel_results.running_variance
-      diags = [_bound(variance_part.variance()) for variance_part in variance_parts]
-      # Set the momentum.
-      batch_ndims = ps.rank(unnest.get_innermost(previous_kernel_results,
-                                                 'target_log_prob'))
-      state_parts = tf.nest.flatten(current_state)
-      new_momentum_distribution = _make_momentum_distribution(diags,
-                                                              state_parts,
-                                                              batch_ndims)
-      inner_results = self.momentum_distribution_setter_fn(
-          previous_kernel_results.inner_results, new_momentum_distribution)
+    def one_step(self, current_state, previous_kernel_results, seed=None):
+        with tf.name_scope(
+            mcmc_util.make_name(
+                self.name, "diagonal_mass_matrix_adaptation", "one_step"
+            )
+        ):
+            variance_parts = previous_kernel_results.running_variance
+            diags = [
+                _bound(variance_part.variance()) for variance_part in variance_parts
+            ]
+            # Set the momentum.
+            batch_ndims = ps.rank(
+                unnest.get_innermost(previous_kernel_results, "target_log_prob")
+            )
+            state_parts = tf.nest.flatten(current_state)
+            new_momentum_distribution = _make_momentum_distribution(
+                diags, state_parts, batch_ndims
+            )
+            inner_results = self.momentum_distribution_setter_fn(
+                previous_kernel_results.inner_results, new_momentum_distribution
+            )
 
-      # Step the inner kernel.
-      inner_kwargs = {} if seed is None else dict(seed=seed)
-      new_state, new_inner_results = self.inner_kernel.one_step(
-          current_state, inner_results, **inner_kwargs)
-      new_state_parts = tf.nest.flatten(new_state)
-      new_variance_parts = []
-      for variance_part, diag, state_part in zip(variance_parts, diags,
-                                                 new_state_parts):
-        # Compute new variance for each variance part, accounting for partial
-        # batching of the variance calculation across chains (ie, some, all, or
-        # none of the chains may share the estimated mass matrix).
-        #
-        # For example, say
-        #
-        # state_part has shape       [2, 3, 4] + [5, 6]  (batch + event)
-        # variance_part has shape          [4] + [5, 6]
-        # log_prob has shape         [2, 3, 4]
-        #
-        # i.e., we have a batch of chains of shape [2, 3, 4], and 4 mass
-        # matrices, each being shared across a [2, 3]-batch of chains. Note this
-        # division is inferred from the shapes of the state part, the log_prob,
-        # and the user-provided initial running variances.
-        #
-        # Until RunningVariance supports rank > 1 chunking, we need to flatten
-        # the states that go into updating the variance estimates. In the above
-        # example, `state_part` will be reshaped to `[6, 4, 5, 6]`, and
-        # fed to `RunningVariance.update(state_part, axis=0)`, recording
-        # 6 new observations in the running variance calculation.
-        # `RunningVariance.variance()` will then be of shape `[4, 5, 6]`, and
-        # the resulting momentum distribution will have batch shape of
-        # `[2, 3, 4]` and event_shape of `[5, 6]`, matching the state_part.
-        state_rank = ps.rank(state_part)
-        variance_rank = ps.rank(diag)
-        num_reduce_dims = state_rank - variance_rank
+            # Step the inner kernel.
+            inner_kwargs = {} if seed is None else dict(seed=seed)
+            new_state, new_inner_results = self.inner_kernel.one_step(
+                current_state, inner_results, **inner_kwargs
+            )
+            new_state_parts = tf.nest.flatten(new_state)
+            new_variance_parts = []
+            for variance_part, diag, state_part in zip(
+                variance_parts, diags, new_state_parts
+            ):
+                # Compute new variance for each variance part, accounting for partial
+                # batching of the variance calculation across chains (ie, some, all, or
+                # none of the chains may share the estimated mass matrix).
+                #
+                # For example, say
+                #
+                # state_part has shape       [2, 3, 4] + [5, 6]  (batch + event)
+                # variance_part has shape          [4] + [5, 6]
+                # log_prob has shape         [2, 3, 4]
+                #
+                # i.e., we have a batch of chains of shape [2, 3, 4], and 4 mass
+                # matrices, each being shared across a [2, 3]-batch of chains. Note this
+                # division is inferred from the shapes of the state part, the log_prob,
+                # and the user-provided initial running variances.
+                #
+                # Until RunningVariance supports rank > 1 chunking, we need to flatten
+                # the states that go into updating the variance estimates. In the above
+                # example, `state_part` will be reshaped to `[6, 4, 5, 6]`, and
+                # fed to `RunningVariance.update(state_part, axis=0)`, recording
+                # 6 new observations in the running variance calculation.
+                # `RunningVariance.variance()` will then be of shape `[4, 5, 6]`, and
+                # the resulting momentum distribution will have batch shape of
+                # `[2, 3, 4]` and event_shape of `[5, 6]`, matching the state_part.
+                state_rank = ps.rank(state_part)
+                variance_rank = ps.rank(diag)
+                num_reduce_dims = state_rank - variance_rank
 
-        state_part_shape = ps.shape(state_part)
-        # This reshape adds a 1 when reduce_dims==0, and collapses all the lead
-        # dimensions to a single one otherwise.
-        reshaped_state = ps.reshape(
-            state_part,
-            ps.concat(
-                [[ps.reduce_prod(state_part_shape[:num_reduce_dims])],
-                 state_part_shape[num_reduce_dims:]], axis=0))
+                state_part_shape = ps.shape(state_part)
+                # This reshape adds a 1 when reduce_dims==0, and collapses all the lead
+                # dimensions to a single one otherwise.
+                reshaped_state = ps.reshape(
+                    state_part,
+                    ps.concat(
+                        [
+                            [ps.reduce_prod(state_part_shape[:num_reduce_dims])],
+                            state_part_shape[num_reduce_dims:],
+                        ],
+                        axis=0,
+                    ),
+                )
 
-        # The `axis=0` here removes the leading dimension we got from the
-        # reshape above, so the new_variance_parts have the correct shape again.
-        new_variance_parts.append(variance_part.update(reshaped_state,
-                                                       axis=0))
+                # The `axis=0` here removes the leading dimension we got from the
+                # reshape above, so the new_variance_parts have the correct shape again.
+                new_variance_parts.append(variance_part.update(reshaped_state, axis=0))
 
-      new_kernel_results = previous_kernel_results._replace(
-          inner_results=new_inner_results,
-          running_variance=new_variance_parts)
+            new_kernel_results = previous_kernel_results._replace(
+                inner_results=new_inner_results, running_variance=new_variance_parts
+            )
 
-      return new_state, new_kernel_results
+            return new_state, new_kernel_results
 
-  def bootstrap_results(self, init_state):
-    with tf.name_scope(
-        mcmc_util.make_name(self.name, 'diagonal_mass_matrix_adaptation',
-                            'bootstrap_results')):
-      if isinstance(self.initial_running_variance,
-                    sample_stats.RunningVariance):
-        variance_parts = [self.initial_running_variance]
-      else:
-        variance_parts = list(self.initial_running_variance)
+    def bootstrap_results(self, init_state):
+        with tf.name_scope(
+            mcmc_util.make_name(
+                self.name, "diagonal_mass_matrix_adaptation", "bootstrap_results"
+            )
+        ):
+            if isinstance(self.initial_running_variance, sample_stats.RunningVariance):
+                variance_parts = [self.initial_running_variance]
+            else:
+                variance_parts = list(self.initial_running_variance)
 
-      diags = [variance_part.variance() for variance_part in variance_parts]
+            diags = [
+                _bound(variance_part.variance()) for variance_part in variance_parts
+            ]
 
-      # Step inner results.
-      inner_results = self.inner_kernel.bootstrap_results(init_state)
-      # Set the momentum.
-      batch_ndims = ps.rank(unnest.get_innermost(inner_results,
-                                                 'target_log_prob'))
-      init_state_parts = tf.nest.flatten(init_state)
-      momentum_distribution = _make_momentum_distribution(
-          diags, init_state_parts, batch_ndims)
-      inner_results = self.momentum_distribution_setter_fn(
-          inner_results, momentum_distribution)
-      proposed = unnest.get_innermost(inner_results, 'proposed_results',
-                                      default=None)
-      if proposed is not None:
-        proposed = proposed._replace(
-            momentum_distribution=momentum_distribution)
-        inner_results = unnest.replace_innermost(inner_results,
-                                                 proposed_results=proposed)
-      return DiagonalMassMatrixAdaptationResults(
-          inner_results=inner_results,
-          running_variance=variance_parts)
+            # Step inner results.
+            inner_results = self.inner_kernel.bootstrap_results(init_state)
+            # Set the momentum.
+            batch_ndims = ps.rank(
+                unnest.get_innermost(inner_results, "target_log_prob")
+            )
+            init_state_parts = tf.nest.flatten(init_state)
+            momentum_distribution = _make_momentum_distribution(
+                diags, init_state_parts, batch_ndims
+            )
+            inner_results = self.momentum_distribution_setter_fn(
+                inner_results, momentum_distribution
+            )
+            proposed = unnest.get_innermost(
+                inner_results, "proposed_results", default=None
+            )
+            if proposed is not None:
+                proposed = proposed._replace(
+                    momentum_distribution=momentum_distribution
+                )
+                inner_results = unnest.replace_innermost(
+                    inner_results, proposed_results=proposed
+                )
+            return DiagonalMassMatrixAdaptationResults(
+                inner_results=inner_results, running_variance=variance_parts
+            )
 
-  @property
-  def is_calibrated(self):
-    return False
+    @property
+    def is_calibrated(self):
+        return False
 
 
-def _make_momentum_distribution(running_variance_parts, state_parts,
-                                batch_ndims):
-  """Construct a momentum distribution from the running variance.
+def _make_momentum_distribution(running_variance_parts, state_parts, batch_ndims):
+    """Construct a momentum distribution from the running variance.
 
   This uses a running variance to construct a momentum distribution with the
   correct batch_shape and event_shape.
@@ -297,30 +333,37 @@ def _make_momentum_distribution(running_variance_parts, state_parts,
     `tfd.Distribution` where `.sample` has the same structure as `state_parts`,
     and `.log_prob` of the sample will have the rank of `batch_ndims`
   """
-  distributions = []
-  for variance_part, state_part in zip(running_variance_parts, state_parts):
-    running_variance_rank = ps.rank(variance_part)
-    state_rank = ps.rank(state_part)
-    event_shape = ps.shape(state_part)[batch_ndims:]
-    nevt = ps.reduce_prod(event_shape)
-    # Pad dimensions and tile by multiplying by tf.ones to add a batch shape
-    ones = tf.ones(ps.shape(state_part)[:-(state_rank - running_variance_rank)],
-                   dtype=variance_part.dtype)
-    ones = bu.left_justified_expand_dims_like(ones, state_part)
-    variance_tiled = ones * variance_part
-    variance_flattened = tf.reshape(
-        variance_tiled,
-        ps.concat([ps.shape(variance_tiled)[:batch_ndims],
-                   [nevt]], axis=0))
+    distributions = []
+    for variance_part, state_part in zip(running_variance_parts, state_parts):
+        running_variance_rank = ps.rank(variance_part)
+        state_rank = ps.rank(state_part)
+        event_shape = ps.shape(state_part)[batch_ndims:]
+        nevt = ps.reduce_prod(event_shape)
+        # Pad dimensions and tile by multiplying by tf.ones to add a batch shape
+        ones = tf.ones(
+            ps.shape(state_part)[: -(state_rank - running_variance_rank)],
+            dtype=variance_part.dtype,
+        )
+        ones = bu.left_justified_expand_dims_like(ones, state_part)
+        variance_tiled = ones * variance_part
+        variance_flattened = tf.reshape(
+            variance_tiled,
+            ps.concat([ps.shape(variance_tiled)[:batch_ndims], [nevt]], axis=0),
+        )
 
-    distributions.append(
-        _CompositeTransformedDistribution(
-            bijector=_CompositeReshape(
-                event_shape_out=event_shape, event_shape_in=[nevt]),
-            distribution=(
-                _CompositeMultivariateNormalPrecisionFactorLinearOperator(
-                    precision_factor=_CompositeLinearOperatorDiag(
-                        tf.math.sqrt(variance_flattened)),
-                    precision=_CompositeLinearOperatorDiag(
-                        variance_flattened)))))
-  return _CompositeJointDistributionSequential(distributions)
+        distributions.append(
+            _CompositeTransformedDistribution(
+                bijector=_CompositeReshape(
+                    event_shape_out=event_shape, event_shape_in=[nevt]
+                ),
+                distribution=(
+                    _CompositeMultivariateNormalPrecisionFactorLinearOperator(
+                        precision_factor=_CompositeLinearOperatorDiag(
+                            tf.math.sqrt(variance_flattened)
+                        ),
+                        precision=_CompositeLinearOperatorDiag(variance_flattened),
+                    )
+                ),
+            )
+        )
+    return _CompositeJointDistributionSequential(distributions)
