@@ -65,7 +65,7 @@ def hmc_like_momentum_distribution_setter_fn(kernel_results, new_distribution):
   return unnest.replace_innermost(
       kernel_results, momentum_distribution=new_distribution)
 
-def _bound(variance, bound=1e-8):
+def _bound(variance, bound=1e-3):
   return tf.math.maximum(variance, bound)
 
 class DiagonalMassMatrixAdaptationResults(
