@@ -154,7 +154,9 @@ class PreconditionedHamiltonianMonteCarlo(hmc.HamiltonianMonteCarlo):
   def __init__(self,
                target_log_prob_fn,
                step_size,
-               num_leapfrog_steps,
+               num_leapfrog_steps=None,
+               path_length=None,
+               max_steps=1024,
                momentum_distribution=None,
                state_gradients_are_stopped=False,
                step_size_update_fn=None,
@@ -207,6 +209,8 @@ class PreconditionedHamiltonianMonteCarlo(hmc.HamiltonianMonteCarlo):
             target_log_prob_fn=target_log_prob_fn,
             step_size=step_size,
             num_leapfrog_steps=num_leapfrog_steps,
+            path_length=path_length,
+            max_steps=max_steps,
             state_gradients_are_stopped=state_gradients_are_stopped,
             momentum_distribution=momentum_distribution,
             name=name or 'hmc_kernel',
@@ -233,7 +237,9 @@ class UncalibratedPreconditionedHamiltonianMonteCarlo(
   def __init__(self,
                target_log_prob_fn,
                step_size,
-               num_leapfrog_steps,
+               num_leapfrog_steps=None,
+               path_length=None,
+               max_steps=1024,
                momentum_distribution=None,
                state_gradients_are_stopped=False,
                store_parameters_in_results=False,
@@ -242,6 +248,8 @@ class UncalibratedPreconditionedHamiltonianMonteCarlo(
         target_log_prob_fn,
         step_size,
         num_leapfrog_steps,
+        path_length,
+        max_steps,
         state_gradients_are_stopped=state_gradients_are_stopped,
         store_parameters_in_results=store_parameters_in_results,
         name=name)
@@ -279,6 +287,15 @@ class UncalibratedPreconditionedHamiltonianMonteCarlo(
           previous_kernel_results.grads_target_log_prob,
           maybe_expand=True,
           state_gradients_are_stopped=self.state_gradients_are_stopped)
+
+      # Option to set path length
+      if self.path_length is not None:
+        def nls_fn(pl, ss):
+          nls = tf.cast(tf.math.maximum(1.0, tf.math.floordiv(pl, ss)), tf.int32)
+          nls = tf.math.minimum(nls, self.max_steps)
+          return nls
+        num_leapfrog_steps = [nls_fn(pl, ss)
+                              for pl, ss, in zip([self.path_length], step_sizes)]
 
       seed = samplers.sanitize_seed(seed)
       current_momentum_parts = list(momentum_distribution.sample(seed=seed))
@@ -321,6 +338,7 @@ class UncalibratedPreconditionedHamiltonianMonteCarlo(
           grads_target_log_prob=next_target_log_prob_grad_parts,
           initial_momentum=current_momentum_parts,
           final_momentum=next_momentum_parts,
+          num_leapfrog_steps=num_leapfrog_steps if self._store_parameters_in_results else [],
           seed=seed,
       )
 
@@ -340,7 +358,8 @@ class UncalibratedPreconditionedHamiltonianMonteCarlo(
         momentum_distribution = self.momentum_distribution
       result = UncalibratedPreconditionedHamiltonianMonteCarloKernelResults(
           **result._asdict(),  # pylint: disable=protected-access
-          momentum_distribution=momentum_distribution)
+          momentum_distribution=momentum_distribution,
+      )
     return result
 
 

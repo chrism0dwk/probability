@@ -176,56 +176,56 @@ def make_simple_step_size_update_policy(num_adaptation_steps,
 
 
 class HamiltonianMonteCarlo(kernel_base.TransitionKernel):
-  """Runs one step of Hamiltonian Monte Carlo.
+    """Runs one step of Hamiltonian Monte Carlo.
 
-  Hamiltonian Monte Carlo (HMC) is a Markov chain Monte Carlo (MCMC) algorithm
-  that takes a series of gradient-informed steps to produce a Metropolis
-  proposal. This class implements one random HMC step from a given
-  `current_state`. Mathematical details and derivations can be found in
-  [Neal (2011)][1].
+    Hamiltonian Monte Carlo (HMC) is a Markov chain Monte Carlo (MCMC) algorithm
+      that takes a series of gradient-informed steps to produce a Metropolis
+      proposal. This class implements one random HMC step from a given
+      `current_state`. Mathematical details and derivations can be found in
+      [Neal (2011)][1].
 
-  The `one_step` function can update multiple chains in parallel. It assumes
-  that all leftmost dimensions of `current_state` index independent chain states
-  (and are therefore updated independently). The output of
-  `target_log_prob_fn(*current_state)` should sum log-probabilities across all
-  event dimensions. Slices along the rightmost dimensions may have different
-  target distributions; for example, `current_state[0, :]` could have a
-  different target distribution from `current_state[1, :]`. These semantics are
-  governed by `target_log_prob_fn(*current_state)`. (The number of independent
-  chains is `tf.size(target_log_prob_fn(*current_state))`.)
+    The `one_step` function can update multiple chains in parallel. It assumes
+      that all leftmost dimensions of `current_state` index independent chain states
+      (and are therefore updated independently). The output of
+      `target_log_prob_fn(*current_state)` should sum log-probabilities across all
+      event dimensions. Slices along the rightmost dimensions may have different
+      target distributions; for example, `current_state[0, :]` could have a
+      different target distribution from `current_state[1, :]`. These semantics are
+      governed by `target_log_prob_fn(*current_state)`. (The number of independent
+      chains is `tf.size(target_log_prob_fn(*current_state))`.)
 
-  #### Examples:
+    #### Examples:
 
-  ##### Simple chain with warm-up.
+    ##### Simple chain with warm-up.
 
-  In this example we sample from a standard univariate normal
-  distribution using HMC with adaptive step size.
+    In this example we sample from a standard univariate normal
+      distribution using HMC with adaptive step size.
 
-  ```python
-  import tensorflow as tf
-  import tensorflow_probability as tfp
+    ```python
+    import tensorflow as tf
+    import tensorflow_probability as tfp
 
-  tf.enable_eager_execution()
+    tf.enable_eager_execution()
 
-  # Target distribution is proportional to: `exp(-x (1 + x))`.
-  def unnormalized_log_prob(x):
-    return -x - x**2.
+    # Target distribution is proportional to: `exp(-x (1 + x))`.
+    def unnormalized_log_prob(x):
+      return -x - x**2.
 
-  # Initialize the HMC transition kernel.
-  num_results = int(10e3)
-  num_burnin_steps = int(1e3)
-  adaptive_hmc = tfp.mcmc.SimpleStepSizeAdaptation(
+    # Initialize the HMC transition kernel.
+    num_results = int(10e3)
+    num_burnin_steps = int(1e3)
+    adaptive_hmc = tfp.mcmc.SimpleStepSizeAdaptation(
       tfp.mcmc.HamiltonianMonteCarlo(
           target_log_prob_fn=unnormalized_log_prob,
           num_leapfrog_steps=3,
           step_size=1.),
       num_adaptation_steps=int(num_burnin_steps * 0.8))
 
-  # Run the chain (with burn-in).
-  @tf.function
-  def run_chain():
     # Run the chain (with burn-in).
-    samples, is_accepted = tfp.mcmc.sample_chain(
+    @tf.function
+    def run_chain():
+      # Run the chain (with burn-in).
+      samples, is_accepted = tfp.mcmc.sample_chain(
         num_results=num_results,
         num_burnin_steps=num_burnin_steps,
         current_state=1.,
@@ -237,101 +237,101 @@ class HamiltonianMonteCarlo(kernel_base.TransitionKernel):
     is_accepted = tf.reduce_mean(tf.cast(is_accepted, dtype=tf.float32))
     return sample_mean, sample_stddev, is_accepted
 
-  sample_mean, sample_stddev, is_accepted = run_chain()
+    sample_mean, sample_stddev, is_accepted = run_chain()
 
-  print('mean:{:.4f}  stddev:{:.4f}  acceptance:{:.4f}'.format(
-      sample_mean.numpy(), sample_stddev.numpy(), is_accepted.numpy()))
-  ```
+    print('mean:{:.4f}  stddev:{:.4f}  acceptance:{:.4f}'.format(
+        sample_mean.numpy(), sample_stddev.numpy(), is_accepted.numpy()))
+    ```
 
-  ##### Estimate parameters of a more complicated posterior.
+    ##### Estimate parameters of a more complicated posterior.
 
-  In this example, we'll use Monte-Carlo EM to find best-fit parameters. See
-  [_Convergence of a stochastic approximation version of the EM algorithm_][2]
-  for more details.
+    In this example, we'll use Monte-Carlo EM to find best-fit parameters. See
+      [_Convergence of a stochastic approximation version of the EM algorithm_][2]
+    for more details.
 
-  More precisely, we use HMC to form a chain conditioned on parameter `sigma`
-  and training data `{ (x[i], y[i]) : i=1...n }`. Then we use one gradient step
-  of maximum-likelihood to improve the `sigma` estimate. Then repeat the process
-  until convergence. (This procedure is a [Robbins--Monro algorithm](
-  https://en.wikipedia.org/wiki/Stochastic_approximation).)
+    More precisely, we use HMC to form a chain conditioned on parameter `sigma`
+      and training data `{ (x[i], y[i]) : i=1...n }`. Then we use one gradient step
+      of maximum-likelihood to improve the `sigma` estimate. Then repeat the process
+      until convergence. (This procedure is a [Robbins--Monro algorithm](
+      https://en.wikipedia.org/wiki/Stochastic_approximation).)
 
-  The generative assumptions are:
+    The generative assumptions are:
 
-  ```none
+    ```none
     W ~ MVN(loc=0, scale=sigma * eye(dims))
     for i=1...num_samples:
         X[i] ~ MVN(loc=0, scale=eye(dims))
       eps[i] ~ Normal(loc=0, scale=1)
         Y[i] = X[i].T * W + eps[i]
-  ```
+    ```
 
-  We now implement a stochastic approximation of Expectation Maximization (SAEM)
-  using `tensorflow_probability` intrinsics. [Bernard (1999)][2]
+    We now implement a stochastic approximation of Expectation Maximization (SAEM)
+      using `tensorflow_probability` intrinsics. [Bernard (1999)][2]
 
-  ```python
-  import tensorflow as tf
-  import tensorflow_probability as tfp
-  import numpy as np
+    ```python
+    import tensorflow as tf
+    import tensorflow_probability as tfp
+    import numpy as np
 
-  tf.enable_eager_execution()
+    tf.enable_eager_execution()
 
-  tfd = tfp.distributions
+    tfd = tfp.distributions
 
-  def make_training_data(num_samples, dims, sigma):
-    dt = np.asarray(sigma).dtype
-    x = np.random.randn(dims, num_samples).astype(dt)
-    w = sigma * np.random.randn(1, dims).astype(dt)
-    noise = np.random.randn(num_samples).astype(dt)
-    y = w.dot(x) + noise
-    return y[0], x, w[0]
+    def make_training_data(num_samples, dims, sigma):
+      dt = np.asarray(sigma).dtype
+      x = np.random.randn(dims, num_samples).astype(dt)
+      w = sigma * np.random.randn(1, dims).astype(dt)
+      noise = np.random.randn(num_samples).astype(dt)
+      y = w.dot(x) + noise
+      return y[0], x, w[0]
 
-  def make_weights_prior(dims, log_sigma):
-    return tfd.MultivariateNormalDiag(
-        loc=tf.zeros([dims], dtype=log_sigma.dtype),
-        scale_identity_multiplier=tf.math.exp(log_sigma))
+    def make_weights_prior(dims, log_sigma):
+      return tfd.MultivariateNormalDiag(
+          loc=tf.zeros([dims], dtype=log_sigma.dtype),
+          scale_identity_multiplier=tf.math.exp(log_sigma))
 
-  def make_response_likelihood(w, x):
-    if w.shape.ndims == 1:
-      y_bar = tf.matmul(w[tf.newaxis], x)[0]
-    else:
-      y_bar = tf.matmul(w, x)
-    return tfd.Normal(loc=y_bar, scale=tf.ones_like(y_bar))  # [n]
+    def make_response_likelihood(w, x):
+      if w.shape.ndims == 1:
+        y_bar = tf.matmul(w[tf.newaxis], x)[0]
+      else:
+        y_bar = tf.matmul(w, x)
+      return tfd.Normal(loc=y_bar, scale=tf.ones_like(y_bar))  # [n]
 
-  # Setup assumptions.
-  dtype = np.float32
-  num_samples = 500
-  dims = 10
-  tf.random.set_seed(10014)
-  np.random.seed(10014)
+    # Setup assumptions.
+    dtype = np.float32
+    num_samples = 500
+    dims = 10
+    tf.random.set_seed(10014)
+    np.random.seed(10014)
 
-  weights_prior_true_scale = np.array(0.3, dtype)
-  y, x, _ = make_training_data(
-      num_samples, dims, weights_prior_true_scale)
+    weights_prior_true_scale = np.array(0.3, dtype)
+    y, x, _ = make_training_data(
+        num_samples, dims, weights_prior_true_scale)
 
-  log_sigma = tf.Variable(0., dtype=dtype, name='log_sigma')
+    log_sigma = tf.Variable(0., dtype=dtype, name='log_sigma')
 
-  optimizer = tf.optimizers.SGD(learning_rate=0.01)
+    optimizer = tf.optimizers.SGD(learning_rate=0.01)
 
-  @tf.function
-  def mcem_iter(weights_chain_start, step_size):
-    with tf.GradientTape() as tape:
-      tape.watch(log_sigma)
-      prior = make_weights_prior(dims, log_sigma)
+    @tf.function
+    def mcem_iter(weights_chain_start, step_size):
+      with tf.GradientTape() as tape:
+        tape.watch(log_sigma)
+        prior = make_weights_prior(dims, log_sigma)
 
       def unnormalized_posterior_log_prob(w):
-        likelihood = make_response_likelihood(w, x)
-        return (
-            prior.log_prob(w) +
-            tf.reduce_sum(likelihood.log_prob(y), axis=-1))  # [m]
+          likelihood = make_response_likelihood(w, x)
+          return (
+              prior.log_prob(w) +
+              tf.reduce_sum(likelihood.log_prob(y), axis=-1))  # [m]
 
       def trace_fn(_, pkr):
-        return (
-            pkr.inner_results.log_accept_ratio,
-            pkr.inner_results.accepted_results.target_log_prob,
-            pkr.inner_results.accepted_results.step_size)
+          return (
+              pkr.inner_results.log_accept_ratio,
+              pkr.inner_results.accepted_results.target_log_prob,
+              pkr.inner_results.accepted_results.step_size)
 
-      num_results = 2
-      weights, (
+    num_results = 2
+    weights, (
           log_accept_ratio, target_log_prob, step_size) = tfp.mcmc.sample_chain(
           num_results=num_results,
           num_burnin_steps=0,
@@ -362,57 +362,59 @@ class HamiltonianMonteCarlo(kernel_base.TransitionKernel):
     return (weights_prior_estimated_scale, weights[-1], loss,
             step_size[-1], avg_acceptance_ratio)
 
-  num_iters = int(40)
+    num_iters = int(40)
 
-  weights_prior_estimated_scale_ = np.zeros(num_iters, dtype)
-  weights_ = np.zeros([num_iters + 1, dims], dtype)
-  loss_ = np.zeros([num_iters], dtype)
-  weights_[0] = np.random.randn(dims).astype(dtype)
-  step_size_ = 0.03
+    weights_prior_estimated_scale_ = np.zeros(num_iters, dtype)
+    weights_ = np.zeros([num_iters + 1, dims], dtype)
+    loss_ = np.zeros([num_iters], dtype)
+    weights_[0] = np.random.randn(dims).astype(dtype)
+    step_size_ = 0.03
 
-  for iter_ in range(num_iters):
-    [
-        weights_prior_estimated_scale_[iter_],
-        weights_[iter_ + 1],
-        loss_[iter_],
-        step_size_,
-        avg_acceptance_ratio_,
-    ] = mcem_iter(weights_[iter_], step_size_)
-    tf.compat.v1.logging.vlog(
-        1, ('iter:{:>2}  loss:{: 9.3f}  scale:{:.3f}  '
-            'step_size:{:.4f}  avg_acceptance_ratio:{:.4f}').format(
-                iter_, loss_[iter_], weights_prior_estimated_scale_[iter_],
-                step_size_, avg_acceptance_ratio_))
+    for iter_ in range(num_iters):
+        [
+            weights_prior_estimated_scale_[iter_],
+            weights_[iter_ + 1],
+            loss_[iter_],
+            step_size_,
+            avg_acceptance_ratio_,
+        ] = mcem_iter(weights_[iter_], step_size_)
+        tf.compat.v1.logging.vlog(
+            1, ('iter:{:>2}  loss:{: 9.3f}  scale:{:.3f}  '
+                'step_size:{:.4f}  avg_acceptance_ratio:{:.4f}').format(
+                    iter_, loss_[iter_], weights_prior_estimated_scale_[iter_],
+                    step_size_, avg_acceptance_ratio_))
 
-  # Should converge to ~0.22.
-  import matplotlib.pyplot as plt
-  plt.plot(weights_prior_estimated_scale_)
-  plt.ylabel('weights_prior_estimated_scale')
-  plt.xlabel('iteration')
-  ```
+    # Should converge to ~0.22.
+    import matplotlib.pyplot as plt
+    plt.plot(weights_prior_estimated_scale_)
+    plt.ylabel('weights_prior_estimated_scale')
+    plt.xlabel('iteration')
+    ```
 
-  #### References
+    #### References
 
-  [1]: Radford Neal. MCMC Using Hamiltonian Dynamics. _Handbook of Markov Chain
+    [1]: Radford Neal. MCMC Using Hamiltonian Dynamics. _Handbook of Markov Chain
        Monte Carlo_, 2011. https://arxiv.org/abs/1206.1901
 
-  [2]: Bernard Delyon, Marc Lavielle, Eric, Moulines. _Convergence of a
+    [2]: Bernard Delyon, Marc Lavielle, Eric, Moulines. _Convergence of a
        stochastic approximation version of the EM algorithm_, Ann. Statist. 27
        (1999), no. 1, 94--128. https://projecteuclid.org/euclid.aos/1018031103
-  """
+    """
 
-  @deprecation.deprecated_args(
-      '2019-05-22', 'The `step_size_update_fn` argument is deprecated. Use '
-      '`tfp.mcmc.SimpleStepSizeAdaptation` instead.', 'step_size_update_fn')
-  def __init__(self,
-               target_log_prob_fn,
-               step_size,
-               num_leapfrog_steps,
-               state_gradients_are_stopped=False,
-               step_size_update_fn=None,
-               store_parameters_in_results=False,
-               name=None):
-    """Initializes this transition kernel.
+    @deprecation.deprecated_args(
+        '2019-05-22', 'The `step_size_update_fn` argument is deprecated. Use '
+        '`tfp.mcmc.SimpleStepSizeAdaptation` instead.', 'step_size_update_fn')
+    def __init__(self,
+                 target_log_prob_fn,
+                 step_size,
+                 num_leapfrog_steps=None,
+                 path_length=None,
+                 max_steps=1024,
+                 state_gradients_are_stopped=False,
+                 step_size_update_fn=None,
+                 store_parameters_in_results=False,
+                 name=None):
+        """Initializes this transition kernel.
 
     Args:
       target_log_prob_fn: Python callable which takes an argument like
@@ -444,78 +446,80 @@ class HamiltonianMonteCarlo(kernel_base.TransitionKernel):
       name: Python `str` name prefixed to Ops created by this function.
         Default value: `None` (i.e., 'hmc_kernel').
     """
-    if step_size_update_fn and store_parameters_in_results:
-      raise ValueError('It is invalid to simultaneously specify '
-                       '`step_size_update_fn` and set '
-                       '`store_parameters_in_results` to `True`.')
-    self._impl = metropolis_hastings.MetropolisHastings(
-        inner_kernel=UncalibratedHamiltonianMonteCarlo(
-            target_log_prob_fn=target_log_prob_fn,
-            step_size=step_size,
-            num_leapfrog_steps=num_leapfrog_steps,
-            state_gradients_are_stopped=state_gradients_are_stopped,
-            name=name or 'hmc_kernel',
-            store_parameters_in_results=store_parameters_in_results))
-    self._parameters = self._impl.inner_kernel.parameters.copy()
-    self._parameters['step_size_update_fn'] = step_size_update_fn
+        if step_size_update_fn and store_parameters_in_results:
+            raise ValueError('It is invalid to simultaneously specify '
+                             '`step_size_update_fn` and set '
+                             '`store_parameters_in_results` to `True`.')
+        self._impl = metropolis_hastings.MetropolisHastings(
+            inner_kernel=UncalibratedHamiltonianMonteCarlo(
+                target_log_prob_fn=target_log_prob_fn,
+                step_size=step_size,
+                num_leapfrog_steps=num_leapfrog_steps,
+                path_length=path_length,
+                max_steps=max_steps,
+                state_gradients_are_stopped=state_gradients_are_stopped,
+                name=name or "hmc_kernel",
+                store_parameters_in_results=store_parameters_in_results))
+        self._parameters = self._impl.inner_kernel.parameters.copy()
+        self._parameters["step_size_update_fn"] = step_size_update_fn
 
-  @property
-  def target_log_prob_fn(self):
-    return self._impl.inner_kernel.target_log_prob_fn
+    @property
+    def target_log_prob_fn(self):
+        return self._impl.inner_kernel.target_log_prob_fn
 
-  @property
-  def step_size(self):
-    """Returns the step_size parameter.
+    @property
+    def step_size(self):
+        """Returns the step_size parameter.
 
-    If `store_parameters_in_results` argument to the initializer was set to
-    `True`, this only returns the value of the `step_size` placed in the kernel
-    results by the `bootstrap_results` method. The actual step size in that
-    situation is governed by the `previous_kernel_results` argument to
-    `one_step` method.
+        If `store_parameters_in_results` argument to the initializer was set to
+        `True`, this only returns the value of the `step_size` placed in the kernel
+        results by the `bootstrap_results` method. The actual step size in that
+        situation is governed by the `previous_kernel_results` argument to
+        `one_step` method.
 
-    Returns:
-      step_size: A floating point `Tensor` or a list of such `Tensors`.
-    """
-    return self._impl.inner_kernel.step_size
+        Returns:
+          step_size: A floating point `Tensor` or a list of such `Tensors`.
+        """
+        return self._impl.inner_kernel.step_size
 
-  @property
-  def num_leapfrog_steps(self):
-    """Returns the num_leapfrog_steps parameter.
+    @property
+    def num_leapfrog_steps(self):
+      """Returns the num_leapfrog_steps parameter.
 
-    If `store_parameters_in_results` argument to the initializer was set to
-    `True`, this only returns the value of the `num_leapfrog_steps` placed in
-    the kernel results by the `bootstrap_results` method. The actual
-    `num_leapfrog_steps` in that situation is governed by the
-    `previous_kernel_results` argument to `one_step` method.
+      If `store_parameters_in_results` argument to the initializer was set to
+      `True`, this only returns the value of the `num_leapfrog_steps` placed in
+      the kernel results by the `bootstrap_results` method. The actual
+      `num_leapfrog_steps` in that situation is governed by the
+      `previous_kernel_results` argument to `one_step` method.
 
-    Returns:
-      num_leapfrog_steps: An integer `Tensor`.
-    """
-    return self._impl.inner_kernel.num_leapfrog_steps
+      Returns:
+        num_leapfrog_steps: An integer `Tensor`.
+      """
+      return self._impl.inner_kernel.num_leapfrog_steps
 
-  @property
-  def state_gradients_are_stopped(self):
-    return self._impl.inner_kernel.state_gradients_are_stopped
+    @property
+    def state_gradients_are_stopped(self):
+        return self._impl.inner_kernel.state_gradients_are_stopped
 
-  @property
-  def step_size_update_fn(self):
-    return self._parameters['step_size_update_fn']
+    @property
+    def step_size_update_fn(self):
+        return self._parameters["step_size_update_fn"]
 
-  @property
-  def name(self):
-    return self._impl.inner_kernel.name
+    @property
+    def name(self):
+        return self._impl.inner_kernel.name
 
-  @property
-  def parameters(self):
-    """Return `dict` of ``__init__`` arguments and their values."""
-    return self._parameters
+    @property
+    def parameters(self):
+        """Return `dict` of ``__init__`` arguments and their values."""
+        return self._parameters
 
-  @property
-  def is_calibrated(self):
-    return True
+    @property
+    def is_calibrated(self):
+        return True
 
-  def one_step(self, current_state, previous_kernel_results, seed=None):
-    """Runs one iteration of Hamiltonian Monte Carlo.
+    def one_step(self, current_state, previous_kernel_results, seed=None):
+        """Runs one iteration of Hamiltonian Monte Carlo.
 
     Args:
       current_state: `Tensor` or Python `list` of `Tensor`s representing the
@@ -537,37 +541,50 @@ class HamiltonianMonteCarlo(kernel_base.TransitionKernel):
       ValueError: if there isn't one `step_size` or a list with same length as
         `current_state`.
     """
-    previous_step_size_assign = (
-        [] if self.step_size_update_fn is None  # pylint: disable=g-long-ternary
-        else (previous_kernel_results.extra.step_size_assign  # pylint: disable=g-long-ternary
-              if mcmc_util.is_list_like(
-                  previous_kernel_results.extra.step_size_assign)
-              else [previous_kernel_results.extra.step_size_assign]))
+        previous_step_size_assign = (
+            []
+            if self.step_size_update_fn is None  # pylint: disable=g-long-ternary
+            else (
+                previous_kernel_results.extra.step_size_assign  # pylint: disable=g-long-ternary
+                if mcmc_util.is_list_like(
+                    previous_kernel_results.extra.step_size_assign
+                )
+                else [previous_kernel_results.extra.step_size_assign]
+            )
+        )
 
-    with tf.control_dependencies(previous_step_size_assign):
-      next_state, kernel_results = self._impl.one_step(
-          current_state, previous_kernel_results, seed=seed)
-      if self.step_size_update_fn is not None:
-        step_size_assign = self.step_size_update_fn(  # pylint: disable=not-callable
-            self.step_size, kernel_results)
-        kernel_results = kernel_results._replace(
-            extra=HamiltonianMonteCarloExtraKernelResults(
-                step_size_assign=step_size_assign))
-      return next_state, kernel_results
+        with tf.control_dependencies(previous_step_size_assign):
+            next_state, kernel_results = self._impl.one_step(
+                current_state, previous_kernel_results, seed=seed
+            )
+            if self.step_size_update_fn is not None:
+                step_size_assign = self.step_size_update_fn(  # pylint: disable=not-callable
+                    self.step_size, kernel_results
+                )
+                kernel_results = kernel_results._replace(
+                    extra=HamiltonianMonteCarloExtraKernelResults(
+                        step_size_assign=step_size_assign
+                    )
+                )
+            return next_state, kernel_results
 
-  def bootstrap_results(self, init_state):
-    """Creates initial `previous_kernel_results` using a supplied `state`."""
-    kernel_results = self._impl.bootstrap_results(init_state)
-    if self.step_size_update_fn is not None:
-      step_size_assign = self.step_size_update_fn(self.step_size, None)  # pylint: disable=not-callable
-      kernel_results = kernel_results._replace(
-          extra=HamiltonianMonteCarloExtraKernelResults(
-              step_size_assign=step_size_assign))
-    return kernel_results
+    def bootstrap_results(self, init_state):
+        """Creates initial `previous_kernel_results` using a supplied `state`."""
+        kernel_results = self._impl.bootstrap_results(init_state)
+        if self.step_size_update_fn is not None:
+            step_size_assign = self.step_size_update_fn(
+                self.step_size, None
+            )  # pylint: disable=not-callable
+            kernel_results = kernel_results._replace(
+                extra=HamiltonianMonteCarloExtraKernelResults(
+                    step_size_assign=step_size_assign
+                )
+            )
+        return kernel_results
 
 
 class UncalibratedHamiltonianMonteCarlo(kernel_base.TransitionKernel):
-  """Runs one step of Uncalibrated Hamiltonian Monte Carlo.
+    """Runs one step of Uncalibrated Hamiltonian Monte Carlo.
 
   Warning: this kernel will not result in a chain which converges to the
   `target_log_prob`. To get a convergent MCMC, use `HamiltonianMonteCarlo(...)`
@@ -577,14 +594,18 @@ class UncalibratedHamiltonianMonteCarlo(kernel_base.TransitionKernel):
   `HamiltonianMonteCarlo`.
   """
 
-  def __init__(self,
-               target_log_prob_fn,
-               step_size,
-               num_leapfrog_steps,
-               state_gradients_are_stopped=False,
-               store_parameters_in_results=False,
-               name=None):
-    """Initializes this transition kernel.
+    def __init__(
+        self,
+        target_log_prob_fn,
+        step_size,
+        num_leapfrog_steps=None,
+        path_length=None,
+        max_steps=1024,
+        state_gradients_are_stopped=False,
+        store_parameters_in_results=False,
+        name=None,
+    ):
+        """Initializes this transition kernel.
 
     Args:
       target_log_prob_fn: Python callable which takes an argument like
@@ -611,26 +632,43 @@ class UncalibratedHamiltonianMonteCarlo(kernel_base.TransitionKernel):
       name: Python `str` name prefixed to Ops created by this function.
         Default value: `None` (i.e., 'hmc_kernel').
     """
-    if not store_parameters_in_results:
-      mcmc_util.warn_if_parameters_are_not_simple_tensors(
-          dict(step_size=step_size, num_leapfrog_steps=num_leapfrog_steps))
-    self._parameters = dict(
-        target_log_prob_fn=target_log_prob_fn,
-        step_size=step_size,
-        num_leapfrog_steps=num_leapfrog_steps,
-        state_gradients_are_stopped=state_gradients_are_stopped,
-        name=name,
-        store_parameters_in_results=store_parameters_in_results,
-    )
-    self._momentum_dtype = None
+        if not store_parameters_in_results:
+            mcmc_util.warn_if_parameters_are_not_simple_tensors(
+                dict(step_size=step_size, num_leapfrog_steps=num_leapfrog_steps)
+            )
 
-  @property
-  def target_log_prob_fn(self):
-    return self._parameters['target_log_prob_fn']
+        if (num_leapfrog_steps is None) and (path_length is None):
+            raise ValueError(
+                "Exactly one of `num_leapfrog_steps "
+                "or `path_length` must be specified"
+            )
 
-  @property
-  def step_size(self):
-    """Returns the step_size parameter.
+        # If path_length is specified, we dynamically calculate number of steps
+        if path_length is not None:
+            num_leapfrog_steps = tf.cast(
+              tf.math.maximum(1.0, tf.math.floordiv(path_length, step_size)),
+              tf.int32,
+            )
+
+        self._parameters = dict(
+            target_log_prob_fn=target_log_prob_fn,
+            step_size=step_size,
+            num_leapfrog_steps=num_leapfrog_steps,
+            path_length=path_length,
+            max_steps=max_steps,
+            state_gradients_are_stopped=state_gradients_are_stopped,
+            name=name,
+            store_parameters_in_results=store_parameters_in_results,
+        )
+        self._momentum_dtype = None
+
+    @property
+    def target_log_prob_fn(self):
+        return self._parameters["target_log_prob_fn"]
+
+    @property
+    def step_size(self):
+        """Returns the step_size parameter.
 
     If `store_parameters_in_results` argument to the initializer was set to
     `True`, this only returns the value of the `step_size` placed in the kernel
@@ -641,11 +679,11 @@ class UncalibratedHamiltonianMonteCarlo(kernel_base.TransitionKernel):
     Returns:
       step_size: A floating point `Tensor` or a list of such `Tensors`.
     """
-    return self._parameters['step_size']
+        return self._parameters["step_size"]
 
-  @property
-  def num_leapfrog_steps(self):
-    """Returns the num_leapfrog_steps parameter.
+    @property
+    def num_leapfrog_steps(self):
+        """Returns the num_leapfrog_steps parameter.
 
     If `store_parameters_in_results` argument to the initializer was set to
     `True`, this only returns the value of the `num_leapfrog_steps` placed in
@@ -656,144 +694,175 @@ class UncalibratedHamiltonianMonteCarlo(kernel_base.TransitionKernel):
     Returns:
       num_leapfrog_steps: An integer `Tensor`.
     """
-    return self._parameters['num_leapfrog_steps']
+        return self._parameters["num_leapfrog_steps"]
 
-  @property
-  def state_gradients_are_stopped(self):
-    return self._parameters['state_gradients_are_stopped']
+    @property
+    def path_length(self):
+        """Returns the path_length if set."""
+        return self._parameters['path_length']
 
-  @property
-  def name(self):
-    return self._parameters['name']
+    @property
+    def max_steps(self):
+      """Returns max number of steps"""
+      return self._parameters['max_steps']
 
-  @property
-  def parameters(self):
-    """Return `dict` of ``__init__`` arguments and their values."""
-    return self._parameters
+    @property
+    def state_gradients_are_stopped(self):
+        return self._parameters["state_gradients_are_stopped"]
 
-  @property
-  def is_calibrated(self):
-    return False
+    @property
+    def name(self):
+        return self._parameters["name"]
 
-  @property
-  def _store_parameters_in_results(self):
-    return self._parameters['store_parameters_in_results']
+    @property
+    def parameters(self):
+        """Return `dict` of ``__init__`` arguments and their values."""
+        return self._parameters
 
-  @mcmc_util.set_doc(HamiltonianMonteCarlo.one_step.__doc__)
-  def one_step(self, current_state, previous_kernel_results, seed=None):
-    with tf.name_scope(mcmc_util.make_name(self.name, 'hmc', 'one_step')):
-      if self._store_parameters_in_results:
-        step_size = previous_kernel_results.step_size
-        num_leapfrog_steps = previous_kernel_results.num_leapfrog_steps
-      else:
-        step_size = self.step_size
-        num_leapfrog_steps = self.num_leapfrog_steps
+    @property
+    def is_calibrated(self):
+        return False
 
-      [
-          current_state_parts,
-          step_sizes,
-          current_target_log_prob,
-          current_target_log_prob_grad_parts,
-      ] = _prepare_args(
-          self.target_log_prob_fn,
-          current_state,
-          step_size,
-          previous_kernel_results.target_log_prob,
-          previous_kernel_results.grads_target_log_prob,
-          maybe_expand=True,
-          state_gradients_are_stopped=self.state_gradients_are_stopped)
+    @property
+    def _store_parameters_in_results(self):
+        return self._parameters["store_parameters_in_results"]
 
-      seed = samplers.sanitize_seed(seed)  # Retain for diagnostics.
-      seeds = samplers.split_seed(seed, n=len(current_state_parts))
+    @mcmc_util.set_doc(HamiltonianMonteCarlo.one_step.__doc__)
+    def one_step(self, current_state, previous_kernel_results, seed=None):
+        with tf.name_scope(mcmc_util.make_name(self.name, "hmc", "one_step")):
+            if self._store_parameters_in_results:
+                step_size = previous_kernel_results.step_size
+                num_leapfrog_steps = previous_kernel_results.num_leapfrog_steps
+            else:
+                step_size = self.step_size
+                num_leapfrog_steps = self.num_leapfrog_steps
 
-      current_momentum_parts = []
-      for part_seed, x in zip(seeds, current_state_parts):
-        current_momentum_parts.append(
-            samplers.normal(
-                shape=ps.shape(x),
-                dtype=self._momentum_dtype or dtype_util.base_dtype(x.dtype),
-                seed=part_seed))
+            [
+                current_state_parts,
+                step_sizes,
+                current_target_log_prob,
+                current_target_log_prob_grad_parts,
+            ] = _prepare_args(
+                self.target_log_prob_fn,
+                current_state,
+                step_size,
+                previous_kernel_results.target_log_prob,
+                previous_kernel_results.grads_target_log_prob,
+                maybe_expand=True,
+                state_gradients_are_stopped=self.state_gradients_are_stopped,
+            )
 
-      integrator = leapfrog_impl.SimpleLeapfrogIntegrator(
-          self.target_log_prob_fn, step_sizes, num_leapfrog_steps)
+            # Option to set path length
+            if self.path_length is not None:
+              def nls_fn(pl, ss):
+                nls = tf.cast(tf.math.maximum(1.0, tf.math.floordiv(pl, ss)), tf.int32)
+                nls = tf.math.minimum(nls, self.max_steps)
+                return nls
+              num_leapfrog_steps = [nls_fn(pl, ss)
+                                    for pl, ss, in zip([self.path_length],
+                                                       step_sizes)]
 
-      [
-          next_momentum_parts,
-          next_state_parts,
-          next_target_log_prob,
-          next_target_log_prob_grad_parts,
-      ] = integrator(current_momentum_parts,
-                     current_state_parts,
-                     current_target_log_prob,
-                     current_target_log_prob_grad_parts)
-      if self.state_gradients_are_stopped:
-        next_state_parts = [tf.stop_gradient(x) for x in next_state_parts]
+            seed = samplers.sanitize_seed(seed)  # Retain for diagnostics.
+            seeds = samplers.split_seed(seed, n=len(current_state_parts))
 
-      def maybe_flatten(x):
-        return x if mcmc_util.is_list_like(current_state) else x[0]
+            current_momentum_parts = []
+            for part_seed, x in zip(seeds, current_state_parts):
+                current_momentum_parts.append(
+                    samplers.normal(
+                        shape=ps.shape(x),
+                        dtype=self._momentum_dtype or dtype_util.base_dtype(x.dtype),
+                        seed=part_seed,
+                    )
+                )
 
-      independent_chain_ndims = ps.rank(current_target_log_prob)
+            integrator = leapfrog_impl.SimpleLeapfrogIntegrator(
+                self.target_log_prob_fn, step_sizes, num_leapfrog_steps
+            )
 
-      new_kernel_results = previous_kernel_results._replace(
-          log_acceptance_correction=_compute_log_acceptance_correction(
-              current_momentum_parts, next_momentum_parts,
-              independent_chain_ndims),
-          target_log_prob=next_target_log_prob,
-          grads_target_log_prob=next_target_log_prob_grad_parts,
-          initial_momentum=current_momentum_parts,
-          final_momentum=next_momentum_parts,
-          seed=seed,
-      )
+            [
+                next_momentum_parts,
+                next_state_parts,
+                next_target_log_prob,
+                next_target_log_prob_grad_parts,
+            ] = integrator(
+                current_momentum_parts,
+                current_state_parts,
+                current_target_log_prob,
+                current_target_log_prob_grad_parts,
+            )
+            if self.state_gradients_are_stopped:
+                next_state_parts = [tf.stop_gradient(x) for x in next_state_parts]
 
-      return maybe_flatten(next_state_parts), new_kernel_results
+            def maybe_flatten(x):
+                return x if mcmc_util.is_list_like(current_state) else x[0]
 
-  @mcmc_util.set_doc(HamiltonianMonteCarlo.bootstrap_results.__doc__)
-  def bootstrap_results(self, init_state):
-    with tf.name_scope(
-        mcmc_util.make_name(self.name, 'hmc', 'bootstrap_results')):
-      init_state, _ = mcmc_util.prepare_state_parts(init_state)
-      if self.state_gradients_are_stopped:
-        init_state = [tf.stop_gradient(x) for x in init_state]
-      [
-          init_target_log_prob,
-          init_grads_target_log_prob,
-      ] = mcmc_util.maybe_call_fn_and_grads(self.target_log_prob_fn, init_state)
-      result = UncalibratedHamiltonianMonteCarloKernelResults(
-          log_acceptance_correction=tf.zeros_like(init_target_log_prob),
-          target_log_prob=init_target_log_prob,
-          grads_target_log_prob=init_grads_target_log_prob,
-          initial_momentum=tf.nest.map_structure(tf.zeros_like, init_state),
-          final_momentum=tf.nest.map_structure(tf.zeros_like, init_state),
-          step_size=[],
-          num_leapfrog_steps=[],
-          # Allow room for one_step's seed.
-          seed=samplers.zeros_seed())
-      if self._store_parameters_in_results:
-        result = result._replace(
-            # TODO(b/142590314): Try to use the following code once we commit to
-            # a tensorization policy.
-            # step_size=mcmc_util.prepare_state_parts(
-            #    self.step_size,
-            #    dtype=init_target_log_prob.dtype,
-            #    name='step_size')[0],
-            step_size=tf.nest.map_structure(
-                lambda x: tf.convert_to_tensor(  # pylint: disable=g-long-lambda
-                    x,
-                    dtype=init_target_log_prob.dtype,
-                    name='step_size'),
-                self.step_size),
-            num_leapfrog_steps=tf.convert_to_tensor(
-                self.num_leapfrog_steps,
-                dtype=tf.int32,
-                name='num_leapfrog_steps'))
-      return result
+            independent_chain_ndims = ps.rank(current_target_log_prob)
+
+            new_kernel_results = previous_kernel_results._replace(
+                log_acceptance_correction=_compute_log_acceptance_correction(
+                    current_momentum_parts, next_momentum_parts, independent_chain_ndims
+                ),
+                target_log_prob=next_target_log_prob,
+                grads_target_log_prob=next_target_log_prob_grad_parts,
+                initial_momentum=current_momentum_parts,
+                final_momentum=next_momentum_parts,
+                num_leapfrog_steps=num_leapfrog_steps if self._store_parameters_in_results else [],
+                seed=seed,
+            )
+
+            return maybe_flatten(next_state_parts), new_kernel_results
+
+    @mcmc_util.set_doc(HamiltonianMonteCarlo.bootstrap_results.__doc__)
+    def bootstrap_results(self, init_state):
+        with tf.name_scope(mcmc_util.make_name(self.name, "hmc", "bootstrap_results")):
+            init_state, _ = mcmc_util.prepare_state_parts(init_state)
+            if self.state_gradients_are_stopped:
+                init_state = [tf.stop_gradient(x) for x in init_state]
+            [
+                init_target_log_prob,
+                init_grads_target_log_prob,
+            ] = mcmc_util.maybe_call_fn_and_grads(self.target_log_prob_fn, init_state)
+            result = UncalibratedHamiltonianMonteCarloKernelResults(
+                log_acceptance_correction=tf.zeros_like(init_target_log_prob),
+                target_log_prob=init_target_log_prob,
+                grads_target_log_prob=init_grads_target_log_prob,
+                initial_momentum=tf.nest.map_structure(tf.zeros_like, init_state),
+                final_momentum=tf.nest.map_structure(tf.zeros_like, init_state),
+                step_size=[],
+                num_leapfrog_steps=[],
+                # Allow room for one_step's seed.
+                seed=samplers.zeros_seed(),
+            )
+            if self._store_parameters_in_results:
+                              
+                result = result._replace(
+                    # TODO(b/142590314): Try to use the following code once we commit to
+                    # a tensorization policy.
+                    # step_size=mcmc_util.prepare_state_parts(
+                    #    self.step_size,
+                    #    dtype=init_target_log_prob.dtype,
+                    #    name='step_size')[0],
+                    step_size=tf.nest.map_structure(
+                        lambda x: tf.convert_to_tensor(  # pylint: disable=g-long-lambda
+                            x, dtype=init_target_log_prob.dtype, name="step_size"
+                        ),
+                        self.step_size,
+                    ),
+                    num_leapfrog_steps=tf.nest.map_structure(
+                      lambda x: tf.convert_to_tensor(
+                        x, dtype=tf.int32,
+                        name="num_leapfrog_steps",
+                      ),
+                      [self.num_leapfrog_steps],
+                    ),
+                )
+            return result
 
 
-def _compute_log_acceptance_correction(current_momentums,
-                                       proposed_momentums,
-                                       independent_chain_ndims,
-                                       name=None):
-  """Helper to `kernel` which computes the log acceptance-correction.
+def _compute_log_acceptance_correction(
+    current_momentums, proposed_momentums, independent_chain_ndims, name=None
+):
+    """Helper to `kernel` which computes the log acceptance-correction.
 
   A sufficient but not necessary condition for the existence of a stationary
   distribution, `p(x)`, is "detailed balance", i.e.:
@@ -867,39 +936,51 @@ def _compute_log_acceptance_correction(current_momentums,
     log_acceptance_correction: `Tensor` representing the `log`
       acceptance-correction.  (See docstring for mathematical definition.)
   """
-  with tf.name_scope(name or 'compute_log_acceptance_correction'):
-    sum_sq = lambda v: tf.reduce_sum(v**2., axis=ps.range(  # pylint: disable=g-long-lambda
-        independent_chain_ndims, ps.rank(v)))
-    current_kinetic = tf.add_n([sum_sq(v) for v in current_momentums])
-    proposed_kinetic = tf.add_n([sum_sq(v) for v in proposed_momentums])
-    return 0.5 * mcmc_util.safe_sum([current_kinetic, -proposed_kinetic])
+    with tf.name_scope(name or "compute_log_acceptance_correction"):
+        sum_sq = lambda v: tf.reduce_sum(
+            v ** 2.0,
+            axis=ps.range(  # pylint: disable=g-long-lambda
+                independent_chain_ndims, ps.rank(v)
+            ),
+        )
+        current_kinetic = tf.add_n([sum_sq(v) for v in current_momentums])
+        proposed_kinetic = tf.add_n([sum_sq(v) for v in proposed_momentums])
+        return 0.5 * mcmc_util.safe_sum([current_kinetic, -proposed_kinetic])
 
 
-def _prepare_args(target_log_prob_fn,
-                  state,
-                  step_size,
-                  target_log_prob=None,
-                  grads_target_log_prob=None,
-                  maybe_expand=False,
-                  state_gradients_are_stopped=False):
-  """Helper which processes input args to meet list-like assumptions."""
-  state_parts, _ = mcmc_util.prepare_state_parts(state, name='current_state')
-  if state_gradients_are_stopped:
-    state_parts = [tf.stop_gradient(x) for x in state_parts]
-  target_log_prob, grads_target_log_prob = mcmc_util.maybe_call_fn_and_grads(
-      target_log_prob_fn, state_parts, target_log_prob, grads_target_log_prob)
-  step_sizes, _ = mcmc_util.prepare_state_parts(
-      step_size, dtype=target_log_prob.dtype, name='step_size')
-  if len(step_sizes) == 1:
-    step_sizes *= len(state_parts)
-  if len(state_parts) != len(step_sizes):
-    raise ValueError('There should be exactly one `step_size` or it should '
-                     'have same length as `current_state`.')
-  def maybe_flatten(x):
-    return x if maybe_expand or mcmc_util.is_list_like(state) else x[0]
-  return [
-      maybe_flatten(state_parts),
-      maybe_flatten(step_sizes),
-      target_log_prob,
-      grads_target_log_prob,
-  ]
+def _prepare_args(
+    target_log_prob_fn,
+    state,
+    step_size,
+    target_log_prob=None,
+    grads_target_log_prob=None,
+    maybe_expand=False,
+    state_gradients_are_stopped=False,
+):
+    """Helper which processes input args to meet list-like assumptions."""
+    state_parts, _ = mcmc_util.prepare_state_parts(state, name="current_state")
+    if state_gradients_are_stopped:
+        state_parts = [tf.stop_gradient(x) for x in state_parts]
+    target_log_prob, grads_target_log_prob = mcmc_util.maybe_call_fn_and_grads(
+        target_log_prob_fn, state_parts, target_log_prob, grads_target_log_prob
+    )
+    step_sizes, _ = mcmc_util.prepare_state_parts(
+        step_size, dtype=target_log_prob.dtype, name="step_size"
+    )
+    if len(step_sizes) == 1:
+        step_sizes *= len(state_parts)
+    if len(state_parts) != len(step_sizes):
+        raise ValueError(
+            "There should be exactly one `step_size` or it should "
+            "have same length as `current_state`."
+        )
+
+    def maybe_flatten(x):
+        return x if maybe_expand or mcmc_util.is_list_like(state) else x[0]
+
+    return [
+        maybe_flatten(state_parts),
+        maybe_flatten(step_sizes),
+        target_log_prob,
+        grads_target_log_prob,
+    ]
